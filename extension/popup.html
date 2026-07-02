@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Job Pipeline Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden">Saved successfully!</div>
+
+  <!-- VIEW 0: Dashboard / Stats -->
+  <div id="view0" class="view hidden">
+    <div class="leethub-header">
+      <h2>JobTracker Pro</h2>
+      <p>Track your job hunt</p>
+    </div>
+    
+    <div class="stats-container">
+      <div class="stat-row">
+        <span>Applications:</span>
+        <span id="v0-count-total" class="stat-value">0</span>
+      </div>
+      <hr class="stat-divider">
+      <div class="stat-row">
+        <span>Applied:</span>
+        <span id="v0-count-applied" class="stat-value">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Interviewing:</span>
+        <span id="v0-count-interviewing" class="stat-value">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Offers:</span>
+        <span id="v0-count-offers" class="stat-value">0</span>
+      </div>
+      <div class="stat-row">
+        <span>👻 Ghosted:</span>
+        <span id="v0-count-ghosted" class="stat-value">0</span>
+      </div>
+    </div>
+    
+    <div class="leethub-actions">
+      <button id="v0-btn-analytics" class="btn-secondary">View Analytics →</button>
+      <button id="v0-btn-add" class="btn-primary">Add Application +</button>
+    </div>
+  </div>
+
+  <!-- VIEW 1: Save Job Form -->
+  <div id="view1" class="view">
+    <div class="header">
+      <h2>Save Job</h2>
+      <button id="v1-btn-pipeline" class="btn-text">View My Pipeline</button>
+    </div>
+    <div id="v1-warning" class="banner warning hidden">You've already saved this job. Save anyway?</div>
+    <div id="v1-info" class="banner info hidden">Couldn't detect job details. Please fill in manually.</div>
+    <div id="v1-notjob" class="banner info hidden">Navigate to a job posting to auto-fill details</div>
+    <form id="v1-form">
+      <div class="form-group">
+        <label for="v1-title">Job Title *</label>
+        <input type="text" id="v1-title" required>
+      </div>
+      <div class="form-group">
+        <label for="v1-company">Company *</label>
+        <input type="text" id="v1-company" required>
+      </div>
+      <div class="form-group">
+        <label for="v1-location">Location</label>
+        <input type="text" id="v1-location" placeholder="Remote / Onsite / Hybrid">
+      </div>
+      <div class="form-group row">
+        <div class="col">
+          <label for="v1-type">Job Type</label>
+          <select id="v1-type">
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contract">Contract</option>
+            <option value="Internship">Internship</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="v1-salary">Salary (optional)</label>
+          <input type="text" id="v1-salary">
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="col">
+          <label for="v1-status">Status</label>
+          <select id="v1-status">
+            <option value="Wishlist">Wishlist</option>
+            <option value="Applied">Applied</option>
+            <option value="Interviewing">Interviewing</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Ghosted">Ghosted</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="v1-date">Date Saved</label>
+          <input type="date" id="v1-date" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="v1-url">URL</label>
+        <input type="url" id="v1-url">
+      </div>
+      <div class="form-group">
+        <label for="v1-notes">Notes</label>
+        <textarea id="v1-notes" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-primary" id="v1-btn-save">Save Job</button>
+    </form>
+  </div>
+
+  <!-- VIEW 1B: Quick Status Update -->
+  <div id="view1b" class="view hidden">
+    <div class="header">
+      <h2>Job Status</h2>
+      <button id="v1b-btn-pipeline" class="btn-text">View My Pipeline</button>
+    </div>
+    <div class="quick-update-card">
+      <div class="saved-date-msg">✅ You saved this job on <span id="v1b-date-display"></span></div>
+      <h3 id="v1b-company-role" class="company-role-title">Company — Role</h3>
+      
+      <div class="status-buttons-container">
+        <div class="status-label">Current status: <span id="v1b-current-status" class="status-badge"></span></div>
+        <div class="status-grid">
+          <button class="btn-status" data-status="Wishlist">Wishlist</button>
+          <button class="btn-status" data-status="Applied">Applied</button>
+          <button class="btn-status" data-status="Interviewing">Interviewing</button>
+          <button class="btn-status" data-status="Offer">Offer</button>
+          <button class="btn-status" data-status="Rejected">Rejected</button>
+          <button class="btn-status" data-status="Ghosted">Ghosted</button>
+        </div>
+      </div>
+      
+      <button id="v1b-btn-edit" class="btn-secondary mt-15">Edit full details</button>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Pipeline List -->
+  <div id="view2" class="view hidden">
+    <div class="header">
+      <h2>My Pipeline</h2>
+      <button id="v2-btn-back" class="btn-text">Back</button>
+    </div>
+    
+    <div class="filters">
+      <input type="text" id="v2-search" placeholder="Search company or role...">
+      <select id="v2-filter-status">
+        <option value="All">All Statuses</option>
+        <option value="Wishlist">Wishlist</option>
+        <option value="Applied">Applied</option>
+        <option value="Interviewing">Interviewing</option>
+        <option value="Offer">Offer</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Ghosted">Ghosted</option>
+      </select>
+    </div>
+
+    <div class="summary-bar">
+      <span>Total: <b id="v2-count-total">0</b></span>
+      <span>Applied: <b id="v2-count-applied">0</b></span>
+      <span>Interviewing: <b id="v2-count-interviewing">0</b></span>
+      <span>Offers: <b id="v2-count-offers">0</b></span>
+    </div>
+
+    <div id="v2-empty-state" class="empty-state hidden">
+      No jobs saved yet. Browse a job posting and click the extension to get started.
+    </div>
+
+    <div id="v2-job-list" class="job-list">
+      <!-- Job cards injected here via JS -->
+    </div>
+
+    <button id="v2-btn-export" class="btn-secondary mt-15">Export CSV</button>
+  </div>
+
+  <!-- VIEW 3: Edit Job -->
+  <div id="view3" class="view hidden">
+    <div class="header">
+      <h2>Edit Job</h2>
+      <button id="v3-btn-cancel" class="btn-text">Cancel</button>
+    </div>
+    <form id="v3-form">
+      <!-- Hidden ID field -->
+      <input type="hidden" id="v3-id">
+      <div class="form-group">
+        <label for="v3-title">Job Title *</label>
+        <input type="text" id="v3-title" required>
+      </div>
+      <div class="form-group">
+        <label for="v3-company">Company *</label>
+        <input type="text" id="v3-company" required>
+      </div>
+      <div class="form-group">
+        <label for="v3-location">Location</label>
+        <input type="text" id="v3-location">
+      </div>
+      <div class="form-group row">
+        <div class="col">
+          <label for="v3-type">Job Type</label>
+          <select id="v3-type">
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contract">Contract</option>
+            <option value="Internship">Internship</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="v3-salary">Salary (optional)</label>
+          <input type="text" id="v3-salary">
+        </div>
+      </div>
+      <div class="form-group row">
+        <div class="col">
+          <label for="v3-status">Status</label>
+          <select id="v3-status">
+            <option value="Wishlist">Wishlist</option>
+            <option value="Applied">Applied</option>
+            <option value="Interviewing">Interviewing</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Ghosted">Ghosted</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="v3-date">Date Saved</label>
+          <input type="date" id="v3-date" readonly class="readonly-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="v3-url">URL</label>
+        <input type="url" id="v3-url">
+      </div>
+      <div class="form-group">
+        <label for="v3-notes">Notes</label>
+        <textarea id="v3-notes" rows="2"></textarea>
+      </div>
+      <div class="meta-info">
+        Last updated: <span id="v3-last-updated"></span>
+      </div>
+      <button type="submit" class="btn-primary" id="v3-btn-update">Update Job</button>
+    </form>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
