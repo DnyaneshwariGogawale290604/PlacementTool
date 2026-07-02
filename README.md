@@ -51,9 +51,5 @@ Because this extension now uses a database, you need to run the backend server l
 3. Once you publish your dashboard on Tableau Public, copy its URL.
 4. Open `extension/config.js` and paste your URL into the `TABLEAU_URL` variable. Click the extension's reload icon in `chrome://extensions/` to apply the change.
 
-## 🤝 Contributing
-Contributions are welcome! If you notice that a specific job board is not scraping correctly (as layouts frequently change), feel free to open a Pull Request.
 
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
 
