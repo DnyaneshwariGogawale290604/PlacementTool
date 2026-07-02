@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Application = require('../models/Application');
+const authMiddleware = require('../middleware/auth');
 
 // Utility to guess platform from URL
 function detectPlatform(url) {
@@ -17,9 +18,9 @@ function detectPlatform(url) {
 }
 
 // GET all applications
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const apps = await Application.find({}).sort({ dateSaved: -1 });
+    const apps = await Application.find({ userId: req.user.id }).sort({ dateSaved: -1 });
     res.json(apps);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch applications' });
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST new application
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const body = req.body;
     
@@ -37,6 +38,7 @@ router.post('/', async (req, res) => {
     const newApp = new Application({
       ...body,
       platform,
+      userId: req.user.id,
       statusHistory: [{ status: body.status || 'Wishlist', date: body.dateSaved || new Date().toISOString().split('T')[0] }]
     });
 
@@ -48,14 +50,14 @@ router.post('/', async (req, res) => {
 });
 
 // PUT (update) application
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const body = req.body;
     
-    const existingApp = await Application.findById(id);
+    const existingApp = await Application.findOne({ _id: id, userId: req.user.id });
     if (!existingApp) {
-      return res.status(404).json({ error: 'Application not found' });
+      return res.status(404).json({ error: 'Application not found or unauthorized' });
     }
 
     // Check if status changed
@@ -86,10 +88,13 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE application
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    await Application.findByIdAndDelete(id);
+    const deletedApp = await Application.findOneAndDelete({ _id: id, userId: req.user.id });
+    if (!deletedApp) {
+      return res.status(404).json({ error: 'Application not found or unauthorized' });
+    }
     res.status(204).end();
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete application' });

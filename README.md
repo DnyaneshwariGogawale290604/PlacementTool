@@ -12,6 +12,7 @@ Now powered by a **Node.js/Express backend** with **MongoDB**, and integrated wi
 - **Quick Status Updates**: Instantly recognizes already-saved jobs and lets you update your pipeline status with a single tap.
 - **Pipeline Dashboard**: View all your saved jobs in one centralized, searchable dashboard.
 - **Tableau Analytics Integration**: Export a clean CSV ready to be visualized in Tableau Public to track your funnel and response rates.
+- **Secure Authentication**: Built-in JSON Web Token (JWT) authentication so multiple users can track their own independent job pipelines on the same deployed server without data mixing.
 
 ## 📦 Local Setup
 

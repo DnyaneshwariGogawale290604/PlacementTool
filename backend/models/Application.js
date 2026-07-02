@@ -17,7 +17,12 @@ const applicationSchema = new mongoose.Schema({
   dateSaved: { type: String, default: '' },
   lastUpdated: { type: String, default: '' },
   notes: { type: String, default: '' },
-  statusHistory: [statusHistorySchema]
+  statusHistory: [statusHistorySchema],
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
 });
 
 // Using a custom toJSON to map _id to id so frontend doesn't need to change much

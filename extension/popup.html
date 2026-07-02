@@ -12,38 +12,43 @@
 
   <!-- VIEW 0: Dashboard / Stats -->
   <div id="view0" class="view hidden">
-    <div class="leethub-header">
-      <h2>JobTracker Pro</h2>
-      <p>Track your job hunt</p>
+    <div class="leethub-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h2 style="margin:0;">JobTracker Pro</h2>
+        <p style="margin:5px 0 0 0;">Track your job hunt</p>
+      </div>
+      <button id="v0-btn-logout" class="btn-text">Logout</button>
     </div>
     
-    <div class="stats-container">
-      <div class="stat-row">
-        <span>Applications:</span>
-        <span id="v0-count-total" class="stat-value">0</span>
+    <div class="lh-stats-box">
+      <div class="lh-stat-total">
+        <span>Total Applied:</span>
+        <strong id="v0-count-total">0</strong>
       </div>
-      <hr class="stat-divider">
-      <div class="stat-row">
-        <span>Applied:</span>
-        <span id="v0-count-applied" class="stat-value">0</span>
-      </div>
-      <div class="stat-row">
-        <span>Interviewing:</span>
-        <span id="v0-count-interviewing" class="stat-value">0</span>
-      </div>
-      <div class="stat-row">
-        <span>Offers:</span>
-        <span id="v0-count-offers" class="stat-value">0</span>
-      </div>
-      <div class="stat-row">
-        <span>👻 Ghosted:</span>
-        <span id="v0-count-ghosted" class="stat-value">0</span>
+      <div class="lh-stats-grid">
+        <div class="lh-stat">
+          <span>Applied:</span>
+          <strong id="v0-count-applied">0</strong>
+        </div>
+        <div class="lh-stat">
+          <span>Interviewing:</span>
+          <strong id="v0-count-interviewing">0</strong>
+        </div>
+        <div class="lh-stat">
+          <span>Offers:</span>
+          <strong id="v0-count-offers">0</strong>
+        </div>
+        <div class="lh-stat ghosted">
+          <span>👻 Ghosted:</span>
+          <strong id="v0-count-ghosted">0</strong>
+        </div>
       </div>
     </div>
     
-    <div class="leethub-actions">
-      <button id="v0-btn-analytics" class="btn-secondary">View Analytics →</button>
-      <button id="v0-btn-add" class="btn-primary">Add Application +</button>
+    <div class="lh-actions">
+      <button id="v0-btn-add" class="lh-btn">+ Save This Job</button>
+      <button id="v0-btn-analytics" class="lh-btn">📊 View in Tableau</button>
+      <button id="v0-btn-export" class="lh-btn">📥 Download Excel</button>
     </div>
   </div>
 
@@ -141,9 +146,12 @@
 
   <!-- VIEW 2: Pipeline List -->
   <div id="view2" class="view hidden">
-    <div class="header">
-      <h2>My Pipeline</h2>
-      <button id="v2-btn-back" class="btn-text">Back</button>
+    <div class="header" style="justify-content: space-between;">
+      <h2 style="margin: 0;">My Pipeline</h2>
+      <div>
+        <button id="v2-btn-logout" class="btn-text" style="margin-right: 8px;">Logout</button>
+        <button id="v2-btn-back" class="btn-text">Back</button>
+      </div>
     </div>
     
     <div class="filters">
@@ -174,7 +182,10 @@
       <!-- Job cards injected here via JS -->
     </div>
 
-    <button id="v2-btn-export" class="btn-secondary mt-15">Export CSV</button>
+    <div style="display: flex; gap: 8px; margin-top: 15px;">
+      <button id="v2-btn-export" class="btn-secondary" style="margin-top: 0;">📥 Export CSV</button>
+      <button id="v2-btn-analytics" class="btn-primary" style="margin-top: 0;">📊 View in Tableau</button>
+    </div>
   </div>
 
   <!-- VIEW 3: Edit Job -->
@@ -242,6 +253,51 @@
         Last updated: <span id="v3-last-updated"></span>
       </div>
       <button type="submit" class="btn-primary" id="v3-btn-update">Update Job</button>
+    </form>
+  </div>
+
+  <!-- VIEW 4: Settings (Tableau Config) -->
+  <div id="view4" class="view hidden">
+    <div class="header">
+      <h2>⚙️ Settings</h2>
+      <button id="v4-btn-back" class="btn-text">Back</button>
+    </div>
+    <div class="form-group" style="margin-top: 10px;">
+      <label for="v4-tableau-url">Tableau Dashboard URL</label>
+      <input type="url" id="v4-tableau-url" placeholder="Paste your Tableau Public URL...">
+    </div>
+    <button id="v4-btn-save" class="btn-primary">Save Config</button>
+    
+    <div class="help-text">
+      Don't have a dashboard yet? <br>
+      1. Click <b>Download Excel</b> to get your data.<br>
+      2. Upload it to <a href="https://public.tableau.com" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: bold;">Tableau Public</a>.<br>
+      3. Paste the dashboard share link above!
+    </div>
+  </div>
+
+  <!-- VIEW 5: Auth (Login/Register) -->
+  <div id="view5" class="view hidden">
+    <div class="header">
+      <h2>🔐 Welcome</h2>
+    </div>
+    
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <button id="v5-tab-login" class="btn-primary" style="flex: 1; margin: 0;">Login</button>
+      <button id="v5-tab-register" class="btn-secondary" style="flex: 1; margin: 0;">Register</button>
+    </div>
+
+    <form id="v5-form">
+      <div class="form-group">
+        <label for="v5-username">Username</label>
+        <input type="text" id="v5-username" required placeholder="Choose a username" minlength="3">
+      </div>
+      <div class="form-group">
+        <label for="v5-password">Password</label>
+        <input type="password" id="v5-password" required placeholder="Min 6 characters" minlength="6">
+      </div>
+      <div id="v5-error" class="help-text" style="color: #ef4444; margin-top: 5px; display: none;"></div>
+      <button type="submit" class="btn-primary" id="v5-btn-submit">Login</button>
     </form>
   </div>
 

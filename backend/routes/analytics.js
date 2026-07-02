@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const Application = require('../models/Application');
+const authMiddleware = require('../middleware/auth');
 
 // GET analytics summary
-router.get('/summary', async (req, res) => {
+router.get('/summary', authMiddleware, async (req, res) => {
   try {
-    const apps = await Application.find({});
+    const apps = await Application.find({ userId: req.user.id });
     
     const total = apps.length;
     const applied = apps.filter(a => a.status === 'Applied').length;
@@ -36,9 +37,9 @@ function escapeCSV(str) {
 }
 
 // GET export CSV (for Tableau)
-router.get('/export/csv', async (req, res) => {
+router.get('/export/csv', authMiddleware, async (req, res) => {
   try {
-    const apps = await Application.find({}).sort({ dateSaved: 1 }); // Oldest first for charts is sometimes better, or maybe it doesn't matter
+    const apps = await Application.find({ userId: req.user.id }).sort({ dateSaved: 1 }); // Oldest first for charts is sometimes better, or maybe it doesn't matter
     
     const headers = ['id', 'company', 'role', 'location', 'type', 'salary', 'platform', 'status', 'dateSaved', 'lastUpdated', 'notes'];
     

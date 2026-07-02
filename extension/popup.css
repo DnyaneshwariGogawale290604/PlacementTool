@@ -48,6 +48,10 @@ body {
   z-index: -1;
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Header */
 .header {
   display: flex;
@@ -382,32 +386,74 @@ input:focus, select:focus, textarea:focus {
   font-size: 14px;
   color: var(--text-muted);
 }
-.stats-container {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 16px;
+.lh-stats-box {
   margin-bottom: 24px;
 }
-.stat-row {
+.lh-stat-total {
+  text-align: center;
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+.lh-stat-total strong {
+  font-weight: 700;
+  margin-left: 8px;
+}
+.lh-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 16px;
+  column-gap: 16px;
+}
+.lh-stat {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
 }
-.stat-value {
-  font-weight: 600;
-  color: var(--primary);
+.lh-stat strong {
+  font-weight: 700;
+  font-size: 16px;
 }
-.stat-divider {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: 8px 0;
+.lh-stat.ghosted {
+  color: #d97706; /* muted orange */
 }
-.leethub-actions {
+.lh-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.lh-btn {
+  width: 100%;
+  background-color: white;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+.lh-btn:hover {
+  background-color: var(--bg-secondary);
+}
+.help-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+.help-text b {
+  color: var(--primary);
+}
+
+/* Auth View */
+#v5-tab-login.active, #v5-tab-register.active {
+  background-color: var(--primary);
+  color: white;
+}
+#v5-tab-login:not(.active), #v5-tab-register:not(.active) {
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
 }

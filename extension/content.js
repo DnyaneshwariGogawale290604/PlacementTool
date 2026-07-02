@@ -5,21 +5,117 @@ function getTodayStr() {
   return new Date().toISOString().split('T')[0];
 }
 
-// Extraction Functions
+// 1. First line of defense: Structured Data (JSON-LD)
+// Almost all modern job boards (LinkedIn, Greenhouse, Lever, Indeed) use schema.org/JobPosting
+function extractJsonLd() {
+  const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (let script of scripts) {
+    try {
+      const data = JSON.parse(script.innerText);
+      const items = Array.isArray(data) ? data : [data];
+      
+      for (let item of items) {
+        // Sometimes the JobPosting is nested inside a @graph array
+        let job = item;
+        if (item["@graph"]) {
+          job = item["@graph"].find(g => g["@type"] === "JobPosting") || item;
+        }
+
+        if (job["@type"] === "JobPosting") {
+          let location = '';
+          if (job.jobLocation) {
+            const loc = Array.isArray(job.jobLocation) ? job.jobLocation[0] : job.jobLocation;
+            if (loc.address) {
+              location = [loc.address.addressLocality, loc.address.addressRegion, loc.address.addressCountry]
+                .filter(Boolean).join(', ');
+            }
+          }
+
+          return {
+            role: job.title || '',
+            company: job.hiringOrganization?.name || '',
+            location: location
+          };
+        }
+      }
+    } catch(e) {
+      // Ignore JSON parse errors
+    }
+  }
+  return null;
+}
+
+// 2. Specific Platform Fallbacks
 function extractLinkedIn() {
-  const titleEl = document.querySelector('.job-details-jobs-unified-top-card__job-title h1, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, h1.top-card-layout__title, h1.topcard__title');
-  const companyEl = document.querySelector('.job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name, a.topcard__org-name-link, .topcard__flavor, .job-details-jobs-unified-top-card__primary-description a');
-  const locationEl = document.querySelector('.job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet, .topcard__flavor--bullet');
-  
+  let title = '';
+  let company = '';
   let location = '';
-  if (locationEl) {
-    location = locationEl.innerText.trim();
+
+  // 1. Title is almost always an H1 on the page. We take the main one.
+  const h1s = Array.from(document.querySelectorAll('h1'));
+  if (h1s.length > 0) {
+    // The actual job title h1 is usually visible and not empty
+    const jobTitleH1 = h1s.find(h => h.innerText.trim().length > 0);
+    if (jobTitleH1) title = jobTitleH1.innerText.trim();
   }
 
-  if (titleEl || companyEl) {
+  // Fallback to title tag for the role if h1 fails
+  if (!title) {
+    title = document.title.split(' | ')[0].replace(' hiring ', ' - ').split(' - ')[0].trim();
+  }
+
+  // 2. Company Name: Highly aggressive search
+  // Pattern A: It's an anchor tag that immediately follows the title or is inside a primary description container.
+  const topCardLinks = Array.from(document.querySelectorAll('.job-details-jobs-unified-top-card__primary-description a, .job-details-jobs-unified-top-card__company-name a, a.app-aware-link'));
+  
+  // Filter out known bad links
+  const validCompanyLinks = topCardLinks.filter(a => {
+    const text = a.innerText.trim().toLowerCase();
+    return text.length > 0 && !text.includes('linkedin') && !text.includes('connections') && !text.includes('alumni');
+  });
+
+  if (validCompanyLinks.length > 0) {
+    company = validCompanyLinks[0].innerText.trim();
+  }
+
+  // Pattern B: Look at the image alt text for the company logo.
+  // The logo is usually a square image near the top.
+  if (!company) {
+    const images = Array.from(document.querySelectorAll('img'));
+    const logoImg = images.find(img => img.alt && img.alt.toLowerCase().includes('logo') && !img.alt.toLowerCase().includes('linkedin'));
+    if (logoImg) {
+      company = logoImg.alt.replace(/logo/i, '').trim();
+    }
+  }
+
+  // Pattern C: Document title fallback (e.g. "Google hiring Software Engineer...")
+  if (!company && document.title.includes(' hiring ')) {
+    company = document.title.split(' hiring ')[0].trim();
+  }
+
+  // 3. Location: Usually a span right next to the company name, containing a middle dot or just text.
+  const tvmTexts = Array.from(document.querySelectorAll('.tvm__text, .job-details-jobs-unified-top-card__bullet'));
+  if (tvmTexts.length > 0) {
+    location = tvmTexts[0].innerText.trim();
+  }
+
+  // Clean up location if it caught extra bullet points
+  if (location && location.includes('·')) {
+    location = location.split('·')[0].trim();
+  }
+
+  // Clean up Company Name
+  if (company) {
+    company = company.replace(/Company\s*for,?\s*/ig, '') // Remove "Company for, "
+                     .replace(/logo/ig, '')               // Remove "logo"
+                     .replace(/\.$/, '')                  // Remove trailing period if any
+                     .trim();
+  }
+
+  if (title || company) {
     return {
-      role: titleEl ? titleEl.innerText.trim() : document.title.split(' | ')[0],
-      company: companyEl ? companyEl.innerText.trim() : '',
+      role: title,
+      company: company,
       location: location
     };
   }
@@ -68,21 +164,6 @@ function extractIndeed() {
       location: locationEl ? locationEl.innerText.trim() : ''
     };
   }
-  
-  // Try structured JSON-LD
-  const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-  for (let script of scripts) {
-    try {
-      const data = JSON.parse(script.innerText);
-      if (data && data["@type"] === "JobPosting") {
-        return {
-          role: data.title,
-          company: data.hiringOrganization?.name || '',
-          location: data.jobLocation?.address?.addressLocality || ''
-        };
-      }
-    } catch(e) {}
-  }
   return null;
 }
 
@@ -127,23 +208,39 @@ function getMeta(name) {
 
 async function scrapeJobDetails() {
   const url = window.location.href;
-  let data = null;
+  
+  // 1. Try JSON-LD structured data first (most accurate for most sites)
+  let data = extractJsonLd();
 
-  // Workday / JS heavy check
-  if (url.includes('myworkdayjobs.com') || url.includes('workday')) {
-    await sleep(1200); // 1.2s delay for JS rendering
-    data = extractWorkday();
-  } else if (url.includes('linkedin.com/jobs')) {
-    data = extractLinkedIn();
-  } else if (url.includes('greenhouse.io')) {
-    data = extractGreenhouse();
-  } else if (url.includes('jobs.lever.co')) {
-    data = extractLever();
-  } else if (url.includes('indeed.com')) {
-    data = extractIndeed();
+  // 2. If JSON-LD is missing or incomplete, fall back to DOM scraping
+  if (!data || !data.role || !data.company || (data.company.toLowerCase() === 'linkedin')) {
+    let domData = null;
+
+    if (url.includes('myworkdayjobs.com') || url.includes('workday')) {
+      await sleep(1200); // 1.2s delay for JS rendering
+      domData = extractWorkday();
+    } else if (url.includes('linkedin.com/jobs')) {
+      domData = extractLinkedIn();
+    } else if (url.includes('greenhouse.io')) {
+      domData = extractGreenhouse();
+    } else if (url.includes('jobs.lever.co')) {
+      domData = extractLever();
+    } else if (url.includes('indeed.com')) {
+      domData = extractIndeed();
+    }
+
+    // Merge DOM data into data if JSON-LD missed anything
+    if (domData) {
+      if (!data) data = domData;
+      else {
+        if (!data.role) data.role = domData.role;
+        if (!data.company || data.company.toLowerCase() === 'linkedin') data.company = domData.company;
+        if (!data.location) data.location = domData.location;
+      }
+    }
   }
 
-  // Fallback
+  // 3. Final generic fallback
   if (!data || (!data.role && !data.company)) {
     data = extractGeneric();
   }
@@ -175,3 +272,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 });
+

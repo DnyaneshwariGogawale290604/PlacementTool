@@ -1,4 +1,4 @@
-import { API_BASE_URL, TABLEAU_URL } from './config.js';
+import { CONFIG } from './config.js';
 
 // Utility: Get current date in YYYY-MM-DD format
 function getTodayStr() {
@@ -17,13 +17,45 @@ const view1 = document.getElementById('view1');
 const view1b = document.getElementById('view1b');
 const view2 = document.getElementById('view2');
 const view3 = document.getElementById('view3');
+const view4 = document.getElementById('view4');
+const view5 = document.getElementById('view5');
 const toast = document.getElementById('toast');
+
+// Auth State
+let authToken = null;
+
+// Utility: Authenticated Fetch
+async function fetchWithAuth(url, options = {}) {
+  if (!options.headers) options.headers = {};
+  if (authToken) {
+    options.headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    logout();
+    throw new Error('Unauthorized');
+  }
+  return res;
+}
 
 // Initialize Popup
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check auth
+  chrome.storage.local.get(['authToken'], async (result) => {
+    if (result.authToken) {
+      authToken = result.authToken;
+      await loadApp();
+    } else {
+      showView(view5);
+      setupEventListeners(); // We need events even if not logged in
+    }
+  });
+});
+
+async function loadApp() {
   // Load data from API
   try {
-    const res = await fetch(`${API_BASE_URL}/applications`);
+    const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/applications`);
     if (res.ok) {
       applications = await res.json();
     }
@@ -68,19 +100,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   setupEventListeners();
-});
+}
+
+// Auth Logic
+let isLoginMode = true;
+
+function switchAuthMode(login) {
+  isLoginMode = login;
+  if (login) {
+    document.getElementById('v5-tab-login').classList.add('active');
+    document.getElementById('v5-tab-register').classList.remove('active');
+    document.getElementById('v5-btn-submit').textContent = 'Login';
+  } else {
+    document.getElementById('v5-tab-register').classList.add('active');
+    document.getElementById('v5-tab-login').classList.remove('active');
+    document.getElementById('v5-btn-submit').textContent = 'Register';
+  }
+  document.getElementById('v5-error').style.display = 'none';
+}
+
+function logout() {
+  authToken = null;
+  applications = [];
+  chrome.storage.local.remove(['authToken'], () => {
+    showView(view5);
+  });
+}
 
 // Setup All Event Listeners
 function setupEventListeners() {
   // Navigation
-  document.getElementById('v0-btn-analytics').addEventListener('click', () => {
-    chrome.tabs.create({ url: TABLEAU_URL });
-  });
+  document.getElementById('v0-btn-analytics').addEventListener('click', handleTableauClick);
   document.getElementById('v0-btn-add').addEventListener('click', () => {
     showView(view1);
-    prefillView1({});
+    prefillView1(scrapedData || {});
   });
+  document.getElementById('v0-btn-export').addEventListener('click', exportCSV);
   
+  document.getElementById('v0-btn-logout').addEventListener('click', logout);
+  document.getElementById('v2-btn-logout').addEventListener('click', logout);
+
   document.getElementById('v1-btn-pipeline').addEventListener('click', () => showView2());
   document.getElementById('v1b-btn-pipeline').addEventListener('click', () => showView2());
   document.getElementById('v2-btn-back').addEventListener('click', () => {
@@ -110,28 +169,105 @@ function setupEventListeners() {
   document.getElementById('v2-search').addEventListener('input', renderPipeline);
   document.getElementById('v2-filter-status').addEventListener('change', renderPipeline);
   document.getElementById('v2-btn-export').addEventListener('click', exportCSV);
+  
+  // Tableau button on View 2
+  document.getElementById('v2-btn-analytics').addEventListener('click', handleTableauClick);
 
   // View 3 Update
   document.getElementById('v3-form').addEventListener('submit', (e) => {
     e.preventDefault();
     updateJobDetails();
   });
+  // View 4 Settings Update
+  document.getElementById('v4-btn-back').addEventListener('click', () => showView0());
+  document.getElementById('v4-btn-save').addEventListener('click', () => {
+    const url = document.getElementById('v4-tableau-url').value.trim();
+    if (!url) {
+      alert("Please enter a valid URL");
+      return;
+    }
+    chrome.storage.local.set({ tableauUrl: url }, () => {
+      showToast('Settings saved!');
+      chrome.tabs.create({ url: url });
+    });
+  });
+
+  // Auth Events
+  document.getElementById('v5-tab-login').addEventListener('click', () => switchAuthMode(true));
+  document.getElementById('v5-tab-register').addEventListener('click', () => switchAuthMode(false));
+  
+  document.getElementById('v5-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('v5-username').value;
+    const password = document.getElementById('v5-password').value;
+    const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+    
+    try {
+      const res = await fetch(`${CONFIG.API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        if (!isLoginMode) {
+          switchAuthMode(true);
+          const errorEl = document.getElementById('v5-error');
+          errorEl.textContent = 'Account created! Please login.';
+          errorEl.style.color = '#10b981'; // Green success message
+          errorEl.style.display = 'block';
+          document.getElementById('v5-password').value = '';
+          return;
+        }
+
+        authToken = data.token;
+        chrome.storage.local.set({ authToken });
+        document.getElementById('v5-username').value = '';
+        document.getElementById('v5-password').value = '';
+        document.getElementById('v5-error').style.display = 'none';
+        document.getElementById('v5-error').style.color = '#ef4444'; // Reset to red
+        await loadApp(); // Load data and show view0
+      } else {
+        document.getElementById('v5-error').textContent = data.error || 'Authentication failed';
+        document.getElementById('v5-error').style.display = 'block';
+      }
+    } catch (err) {
+      document.getElementById('v5-error').textContent = 'Network error. Make sure server is running.';
+      document.getElementById('v5-error').style.display = 'block';
+    }
+  });
 }
 
 // View Management
 function showView(viewToShow) {
-  [view0, view1, view1b, view2, view3].forEach(v => v.classList.add('hidden'));
+  [view0, view1, view1b, view2, view3, view4, view5].forEach(v => v.classList.add('hidden'));
   viewToShow.classList.remove('hidden');
+}
+
+function handleTableauClick() {
+  chrome.storage.local.get(['tableauUrl'], (result) => {
+    if (result.tableauUrl) {
+      chrome.tabs.create({ url: result.tableauUrl });
+    } else {
+      showView(view4);
+    }
+  });
 }
 
 function showView0() {
   showView(view0);
   
-  document.getElementById('v0-count-total').textContent = applications.length;
-  document.getElementById('v0-count-applied').textContent = applications.filter(a => a.status === 'Applied').length;
-  document.getElementById('v0-count-interviewing').textContent = applications.filter(a => a.status === 'Interviewing').length;
-  document.getElementById('v0-count-offers').textContent = applications.filter(a => a.status === 'Offer').length;
-  document.getElementById('v0-count-ghosted').textContent = applications.filter(a => a.status === 'Ghosted').length;
+  fetchWithAuth(`${CONFIG.API_BASE}/api/analytics/summary`)
+    .then(res => res.json())
+    .then(stats => {
+      document.getElementById('v0-count-total').textContent = stats.total || 0;
+      document.getElementById('v0-count-applied').textContent = stats.applied || 0;
+      document.getElementById('v0-count-interviewing').textContent = stats.interviewing || 0;
+      document.getElementById('v0-count-offers').textContent = stats.offers || 0;
+      document.getElementById('v0-count-ghosted').textContent = stats.ghosted || 0;
+    })
+    .catch(err => console.error("Failed to fetch stats", err));
 }
 
 function showView1B(job) {
@@ -214,7 +350,7 @@ async function saveNewJob() {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/applications`, {
+    const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/applications`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newJob)
@@ -235,7 +371,7 @@ async function saveNewJob() {
 
 async function updateJobStatus(id, newStatus) {
   try {
-    const res = await fetch(`${API_BASE_URL}/applications/${id}`, {
+    const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/applications/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus, lastUpdated: getTodayStr() })
@@ -274,7 +410,7 @@ async function updateJobDetails() {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/applications/${id}`, {
+    const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/applications/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -297,7 +433,7 @@ async function updateJobDetails() {
 async function deleteJob(id) {
   if (confirm("Are you sure you want to delete this job?")) {
     try {
-      const res = await fetch(`${API_BASE_URL}/applications/${id}`, { method: 'DELETE' });
+      const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/applications/${id}`, { method: 'DELETE' });
       if (res.ok) {
         applications = applications.filter(a => a.id !== id);
         if (currentJobMatch && currentJobMatch.id === id) currentJobMatch = null;
@@ -350,7 +486,10 @@ function renderPipeline() {
   // Sort by date saved (newest first)
   filteredApps.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
 
-  filteredApps.forEach(app => {
+  // Limit to max 10 jobs to keep the popup clean (rest should be viewed in Tableau)
+  const jobsToDisplay = filteredApps.slice(0, 10);
+
+  jobsToDisplay.forEach(app => {
     const card = document.createElement('div');
     card.className = 'job-card';
     
@@ -413,14 +552,23 @@ function showToast(message) {
   }, 2000);
 }
 
-// CSV Export (Now redirects to the API download endpoint)
-function exportCSV() {
+// CSV Export
+async function exportCSV() {
   if (applications.length === 0) {
     showToast("No jobs to export");
     return;
   }
   
-  // Use the backend export endpoint
-  chrome.tabs.create({ url: `${API_BASE_URL}/analytics/export/csv` });
+  try {
+    const res = await fetchWithAuth(`${CONFIG.API_BASE}/api/analytics/export/csv`);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    chrome.downloads.download({
+      url: url,
+      filename: `jobtracker-export-${getTodayStr()}.csv`
+    });
+  } catch (err) {
+    console.error("Failed to export CSV", err);
+  }
 }
 
